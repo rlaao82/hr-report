@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>근무시간 및 비용 분석 보고서 · 2026.03</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap");
+
+  :root {
+    --bg: #f4f6fb;
+    --surface: #ffffff;
+    --surface2: #f8f9fc;
+    --border: #e2e8f0;
+    --accent: #1d4ed8;
+    --accent2: #d97706;
+    --accent3: #16a34a;
+    --accent4: #dc2626;
+    --text: #0f172a;
+    --muted: #64748b;
+    --highlight: rgba(29,78,216,0.05);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    overflow-x: hidden;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans KR", sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  .header {
+    padding: 52px 60px 40px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+    overflow: hidden;
+  }
+  .report-tag {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+  .report-title {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  .report-title span { color: var(--accent); }
+  .report-meta {
+    text-align: right;
+    font-family: "Noto Sans KR", sans-serif;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 2;
+  }
+
+  .kpi-section {
+    padding: 32px 60px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+    overflow: hidden;
+  }
+  .kpi-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .kpi-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-accent, var(--accent));
+  }
+  .kpi-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .kpi-label {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 10px;
+  }
+  .kpi-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-sub { font-size: 14px; color: var(--muted); }
+  .kpi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 8px;
+    font-weight: 500;
+  }
+  .badge-up { background: #dcfce7; color: #16a34a; }
+  .badge-down { background: #fee2e2; color: #dc2626; }
+  .badge-neutral { background: #fef3c7; color: #d97706; }
+
+  .section { padding: 36px 60px; max-width: 100%; overflow: hidden; }
+  .section + .section { padding-top: 0; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .section-number {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    background: #dbeafe;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .section-desc { font-size: 13px; color: var(--muted); margin-left: auto; }
+  .divider { height: 1px; background: var(--border); margin: 0 60px; }
+
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    min-width: 0;
+    overflow: hidden;
+  }
+  .chart-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-width: 0; }
+  .grid-3-split { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; min-width: 0; }
+
+  table { width: 100%; border-collapse: collapse; }
+  .table-scroll { overflow-x: auto; width: 100%; }
+  thead th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--muted);
+    border-bottom: 2px solid var(--border);
+    font-weight: 600;
+    font-family: "Noto Sans KR", sans-serif;
+    background: var(--surface2);
+    white-space: nowrap;
+  }
+  thead th:not(:first-child) { text-align: center; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+  tbody tr:hover { background: var(--highlight); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td {
+    padding: 13px 16px;
+    font-family: "Noto Sans KR", sans-serif;
+    font-size: 14px;
+    text-align: center;
+    color: var(--text);
+  }
+  tbody td:first-child { font-weight: 500; font-size: 14px; text-align: left; }
+  .rank-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%;
+    font-size: 10px; font-weight: 700;
+  }
+  .rank-2 { background: #e2e8f0; color: #64748b; }
+  .rank-3 { background: #fef3c7; color: #92400e; }
+
+  .team-alerts {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .alert-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 6px;
+    font-size: 13px; font-family: "Noto Sans KR", sans-serif; font-weight: 500;
+  }
+  .alert-chip-up { background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; }
+  .alert-chip-down { background: #dcfce7; border: 1px solid #86efac; color: #16a34a; }
+  .alert-chip .chip-val { font-family: "Noto Sans KR", sans-serif; font-size: 13px; font-weight: 700; }
+
+  .footer {
+    padding: 28px 60px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 20px;
+  }
+  .footer-note { font-size: 12px; color: var(--muted); line-height: 1.8; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="report-tag">Attendance Analytics Report</div>
+    <div class="report-title">근무시간 및 비용<br><span>분석 보고서</span></div>
+  </div>
+  <div class="report-meta">
+    <div style="display:flex;align-items:baseline;gap:10px;justify-content:flex-end;margin-bottom:14px;">
+      <span style="font-size:13px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">기준월</span>
+      <span style="font-size:32px;font-weight:700;color:var(--text);letter-spacing:-1px;line-height:1;">2026년 3월</span>
+    </div>
+    <div style="font-size:13px;color:var(--muted);line-height:2;text-align:right;">
+      분석범위: 2025.03 — 2026.03<br>
+      구분: 연장/휴일근무 (시간외 수당)<br>
+      생성일: 2026.04.07
+    </div>
+  </div>
+</div>
+
+<!-- KPI CARDS -->
+<div class="kpi-section">
+  <div class="kpi-card" style="--card-accent:#3b82f6">
+    <div class="kpi-label">3월 전사 총 지급비용</div>
+    <div class="kpi-value" style="color:var(--accent)">2.61억</div>
+    <div class="kpi-sub">260,924,510 원</div>
+    <div class="kpi-badge badge-up">▲ 전월 대비 +1.29억 (+97.7%)</div>
+  </div>
+  <div class="kpi-card" style="--card-accent:#f59e0b">
+    <div class="kpi-label">3월 전사 평균 초과근무</div>
+    <div class="kpi-value" style="color:var(--accent2)">24.5h</div>
+    <div class="kpi-sub">인당 평균 시간</div>
+    <div class="kpi-badge badge-up">▲ 전월 대비 +12.2h</div>
+  </div>
+  <div class="kpi-card" style="--card-accent:#10b981">
+    <div class="kpi-label">1년 월평균 지급비용</div>
+    <div class="kpi-value" style="color:var(--accent3)">1.86억</div>
+    <div class="kpi-sub">186,280천 원 / 월</div>
+    <div class="kpi-badge badge-neutral">연평균 기준</div>
+  </div>
+  <div class="kpi-card" style="--card-accent:#ef4444">
+    <div class="kpi-label">1년 월평균 초과근무</div>
+    <div class="kpi-value" style="color:var(--accent4)">17.5h</div>
+    <div class="kpi-sub">인당 평균 시간</div>
+    <div class="kpi-badge badge-neutral">연평균 기준</div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SECTION 1: 월별 비용 추이 -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">01</span>
+    <span class="section-title">전사 비용 월별 추이 (1년)</span>
+    <span class="section-desc">2025.03 — 2026.03 · 평일연장 + 휴일근무 기준</span>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">월별 시간외근무 지급 총액 (단위: 만원)</div>
+    <canvas id="costTrendChart" height="90"></canvas>
+  </div>
+
+  <div style="margin-top:20px;" class="grid-2">
+    <div class="chart-wrap">
+      <div class="chart-title">월별 평균 초과근무 시간 (인당)</div>
+      <canvas id="hourTrendChart" height="160"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">월별 휴일근무 비중 (%)</div>
+      <canvas id="holidayRatioChart" height="160"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SECTION 2: 조직별 비용 및 평균근무시간 -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">02</span>
+    <span class="section-title">조직별 비용 및 평균근무시간 비교</span>
+    <span class="section-desc">2026년 3월 기준 · 디렉터 제외</span>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-wrap">
+      <div class="chart-title">조직별 시간외수당 총액 및 인당 평균 (3월)</div>
+      <canvas id="orgCostChart" height="180"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">조직별 평균 초과근무시간 비교 (3월)</div>
+      <canvas id="orgHourChart" height="180"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<div class="divider"></div>
+
+<!-- SECTION 3: 조직별 3개월 추이 -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">03</span>
+    <span class="section-title">조직별 평균 초과근무시간 3개월 추이</span>
+    <span class="section-desc">2026.01 — 2026.03 · 디렉터 제외</span>
+  </div>
+
+  <!-- 퓨처파이트 -->
+  <div class="chart-wrap" style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;">퓨처파이트</span>
+      <span class="kpi-badge badge-down">▼ −0.05h (3월 증감)</span>
+    </div>
+    <canvas id="futureFightChart" height="100"></canvas>
+    <div id="ffAlerts" class="team-alerts"></div>
+  </div>
+
+  <!-- 레이븐2 -->
+  <div class="chart-wrap" style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;">레이븐2</span>
+      <span class="kpi-badge badge-up">▲ +4.47h (3월 증감)</span>
+    </div>
+    <canvas id="raven2Chart" height="100"></canvas>
+    <div id="r2Alerts" class="team-alerts"></div>
+  </div>
+
+  <!-- BIGCAT -->
+  <div class="chart-wrap" style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;">BIGCAT</span>
+      <span class="kpi-badge badge-up">▲ +31.49h (3월 증감)</span>
+    </div>
+    <canvas id="bigcatChart" height="100"></canvas>
+    <div id="bcAlerts" class="team-alerts"></div>
+  </div>
+
+  <!-- FENRIR -->
+  <div class="chart-wrap" style="margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;">FENRIR</span>
+      <span class="kpi-badge badge-up">▲ +1.41h (3월 증감)</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;min-width:0;">
+      <div style="min-width:0;overflow:hidden;">
+        <div class="chart-title" style="margin-bottom:12px;">최근 3개월 팀별 추이 (1월–3월)</div>
+        <canvas id="fenrirChart"></canvas>
+      </div>
+      <div style="min-width:0;overflow:hidden;">
+        <div class="chart-title" style="margin-bottom:12px;">1년 전체 추이 (25.04–26.03)</div>
+        <canvas id="fenrir1yChart"></canvas>
+      </div>
+    </div>
+    <div id="fnAlerts" class="team-alerts"></div>
+  </div>
+
+  <!-- 전사 종합 비교 -->
+  <div style="margin-top:20px;">
+    <div class="chart-wrap">
+      <div class="chart-title">전사 조직별 3개월 종합 추이 (평균 초과근무시간)</div>
+      <canvas id="allOrgTrendChart" height="90"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SECTION 4: 30시간 이상 초과근무 인원 비율 -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-number">04</span>
+    <span class="section-title">조직별 초과근무 인원 비율</span>
+    <span class="section-desc">2026년 3월 기준 · 재량근무 제외</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:stretch;">
+    <!-- 표 -->
+    <div class="chart-wrap" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="chart-title">조직별 현황 요약</div>
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>구분</th>
+            <th>전체</th>
+            <th>퓨처파이트</th>
+            <th>레이븐2</th>
+            <th>BIGCAT</th>
+            <th>FENRIR</th>
+            <th>지원부서</th>
+            <th>경영지원</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-family:'Noto Sans KR',sans-serif;font-size:13px;">인원수</td>
+            <td style="font-weight:700;color:var(--text);">299명</td>
+            <td>59명</td>
+            <td>95명</td>
+            <td>94명</td>
+            <td>19명</td>
+            <td>23명</td>
+            <td>9명</td>
+          </tr>
+          <tr>
+            <td style="font-family:'Noto Sans KR',sans-serif;font-size:13px;">30시간 이상</td>
+            <td style="font-weight:700;color:var(--text);">112명</td>
+            <td>3명</td>
+            <td>12명</td>
+            <td>81명</td>
+            <td>10명</td>
+            <td>6명</td>
+            <td>0명</td>
+          </tr>
+          <tr>
+            <td style="font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;">비율</td>
+            <td style="font-weight:700;color:var(--accent);">37.5%</td>
+            <td style="color:#60a5fa;">5.1%</td>
+            <td style="color:#60a5fa;">12.6%</td>
+            <td style="color:#ef4444;font-weight:700;">86.2%</td>
+            <td style="color:#f59e0b;font-weight:700;">52.6%</td>
+            <td style="color:#60a5fa;">26.1%</td>
+            <td style="color:var(--muted);">0.0%</td>
+          </tr>
+          <tr style="border-top:2px solid rgba(255,255,255,0.1);">
+            <td style="font-family:'Noto Sans KR',sans-serif;font-size:13px;">50시간 이상</td>
+            <td style="font-weight:700;color:var(--text);">47명</td>
+            <td>1명</td>
+            <td>5명</td>
+            <td>37명</td>
+            <td>4명</td>
+            <td>0명</td>
+            <td>0명</td>
+          </tr>
+          <tr>
+            <td style="font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;">비율</td>
+            <td style="font-weight:700;color:var(--accent);">15.7%</td>
+            <td style="color:#60a5fa;">1.7%</td>
+            <td style="color:#60a5fa;">5.3%</td>
+            <td style="color:#ef4444;font-weight:700;">39.4%</td>
+            <td style="color:#f59e0b;font-weight:700;">21.1%</td>
+            <td style="color:var(--muted);">0.0%</td>
+            <td style="color:var(--muted);">0.0%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted);">※ 재량근무, 디렉터 제외</div>
+      </div>
+    </div>
+
+    <!-- 차트 -->
+    <div class="chart-wrap" style="display:flex;flex-direction:column;">
+      <div class="chart-title">조직별 초과근무 비율 (%)</div>
+      <div id="overtimeChartWrap" style="flex:1;min-height:0;position:relative;">
+        <canvas id="overtimeRatioChart" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-note">
+    데이터 출처: 근태 시스템 누적 데이터 · 퇴사자 제외 · 평일연장 + 휴일근무 기준<br>
+    * 디렉터 직책 제외 후 산출 | 비용 단위: 원 / 시간 단위: 시간(h)
+  </div>
+  <div class="footer-note" style="text-align:right;">
+    CONFIDENTIAL · HR Analytics<br>
+    2026년 4월 기준
+  </div>
+</div>
+
+<script>
+const MONTHS = ['25.03','25.04','25.05','25.06','25.07','25.08','25.09','25.10','25.11','25.12','26.01','26.02','26.03'];
+const MONTHS_KR = ['3월','4월','5월','6월','7월','8월','9월','10월','11월','12월','1월','2월','3월'];
+
+Chart.defaults.font.family = "'Noto Sans KR', sans-serif";
+Chart.defaults.color = '#64748b';
+
+const gridColor = 'rgba(0,0,0,0.06)';
+const tickColor = '#94a3b8';
+
+// 데이터
+const costData = [166766420, 232826540, 175985150, 170778160, 272758390, 171862091, 205899980, 182793500, 149774370, 122376540, 157388090, 131992630, 260924510].map(v => Math.round(v/10000));
+const hourData = [15.92, 21.58, 16.19, 15.74, 25.73, 16.51, 19.42, 17.27, 14.19, 11.39, 14.98, 12.29, 24.47];
+const holidayRatio = [3.55, 5.17, 9.90, 5.45, 3.15, 8.50, 2.80, 15.17, 5.82, 6.13, 2.98, 6.49, 5.99];
+
+// 1. 비용 추이 (Line + Bar combo)
+new Chart(document.getElementById('costTrendChart'), {
+  type: 'bar',
+  data: {
+    labels: MONTHS_KR.map((m,i) => i===0 ? m+'(25년)' : (i===10 ? m+'(26년)' : m) ),
+    datasets: [
+      {
+        type: 'bar',
+        label: '총 지급액 (만원)',
+        data: costData,
+        backgroundColor: costData.map((v,i) => i===12 ? 'rgba(59,130,246,0.7)' : 'rgba(59,130,246,0.25)'),
+        borderColor: costData.map((v,i) => i===12 ? '#3b82f6' : 'rgba(59,130,246,0.4)'),
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: 'y',
+      },
+      {
+        type: 'line',
+        label: '평균 초과근무(h)',
+        data: hourData,
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#f59e0b',
+        pointRadius: 4,
+        tension: 0.3,
+        yAxisID: 'y2',
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 13 }, boxWidth: 24, padding: 16 } } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 13, weight: '500' } } },
+      y: {
+        grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, callback: v => v.toLocaleString()+'만' },
+        title: { display: true, text: '지급액 (만원)', color: tickColor, font: { size: 11 } }
+      },
+      y2: {
+        position: 'right', grid: { display: false },
+        ticks: { color: '#f59e0b', font: { size: 11 }, callback: v => v+'h' },
+        title: { display: true, text: '초과근무 (h)', color: '#f59e0b', font: { size: 11 } }
+      }
+    }
+  }
+});
+
+// 2. 시간 추이
+new Chart(document.getElementById('hourTrendChart'), {
+  type: 'line',
+  data: {
+    labels: MONTHS_KR,
+    datasets: [{
+      label: '평균 초과근무 시간',
+      data: hourData,
+      borderColor: '#f59e0b',
+      backgroundColor: 'rgba(245,158,11,0.08)',
+      fill: true,
+      tension: 0.3,
+      pointBackgroundColor: hourData.map((_,i) => i===12 ? '#f59e0b' : 'transparent'),
+      pointBorderColor: '#f59e0b',
+      pointRadius: hourData.map((_,i) => i===12 ? 6 : 3),
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 13, weight: '500' } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: v => v+'h' } }
+    }
+  }
+});
+
+// 3. 휴일 비중
+new Chart(document.getElementById('holidayRatioChart'), {
+  type: 'bar',
+  data: {
+    labels: MONTHS_KR,
+    datasets: [{
+      label: '휴일근무 비중',
+      data: holidayRatio,
+      backgroundColor: holidayRatio.map((v,i) => i===12 ? 'rgba(16,185,129,0.65)' : 'rgba(16,185,129,0.25)'),
+      borderColor: holidayRatio.map((v,i) => i===12 ? '#10b981' : 'rgba(16,185,129,0.35)'),
+      borderWidth: 1,
+      borderRadius: 3,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 13, weight: '500' } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, callback: v => v+'%' } }
+    }
+  }
+});
+
+// 4. 조직별 비용
+const orgs = ['퓨처파이트','레이븐2','BIGCAT','FENRIR','지원부서'];
+const orgTotalCost = [11113920, 48269960, 146192720, 26445620, 19912700].map(v => Math.round(v/10000));
+const orgAvgCost = [18.8, 50.8, 155.5, 139.2, 86.6];
+const orgHours = [5.53, 13.50, 47.24, 36.38, 20.63];
+
+new Chart(document.getElementById('orgCostChart'), {
+  type: 'bar',
+  data: {
+    labels: orgs,
+    datasets: [
+      {
+        label: '총 지급액 (만원)',
+        data: orgTotalCost,
+        backgroundColor: 'rgba(59,130,246,0.4)',
+        borderColor: '#3b82f6',
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: 'y',
+      },
+      {
+        type: 'line',
+        label: '인당 평균 (만원)',
+        data: orgAvgCost,
+        borderColor: '#f59e0b',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointBackgroundColor: '#f59e0b',
+        pointRadius: 5,
+        yAxisID: 'y2',
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 13 }, boxWidth: 24, padding: 16 } } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 13, weight: '500' } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, callback: v => v.toLocaleString()+'만' } },
+      y2: {
+        position: 'right', grid: { display: false },
+        ticks: { color: '#f59e0b', font: { size: 11 }, callback: v => v+'만' }
+      }
+    }
+  }
+});
+
+// 5. 조직별 시간
+new Chart(document.getElementById('orgHourChart'), {
+  type: 'bar',
+  plugins: [ChartDataLabels],
+  data: {
+    labels: orgs,
+    datasets: [{
+      label: '평균 초과근무 시간 (h)',
+      data: orgHours,
+      backgroundColor: ['rgba(59,130,246,0.35)','rgba(59,130,246,0.35)','rgba(59,130,246,0.35)','rgba(59,130,246,0.35)','rgba(59,130,246,0.35)'],
+      borderColor: '#3b82f6',
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      datalabels: {
+        anchor: 'end',
+        align: 'end',
+        offset: 2,
+        color: '#334155',
+        font: { size: 12, weight: '600', family: "'Noto Sans KR', sans-serif" },
+        formatter: v => v + 'h'
+      }
+    },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 13, weight: '500' } } },
+      y: {
+        grid: { color: gridColor },
+        ticks: { color: tickColor, font: { size: 11 }, callback: v => v+'h' },
+        grace: '15%'
+      }
+    }
+  }
+});
+
+// 3개월 추이 차트 공통 함수 (X축=팀, 선=월별)
+function make3MonthChart(id, teams, data1, data2, data3) {
+  const MONTH_COLORS = {
+    '1월': { line: '#60a5fa', point: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
+    '2월': { line: '#fbbf24', point: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
+    '3월': { line: '#34d399', point: '#10b981', bg: 'rgba(16,185,129,0.08)' },
+  };
+  new Chart(document.getElementById(id), {
+    type: 'line',
+    data: {
+      labels: teams,
+      datasets: [
+        {
+          label: '1월',
+          data: data1,
+          borderColor: MONTH_COLORS['1월'].line,
+          backgroundColor: MONTH_COLORS['1월'].bg,
+          pointBackgroundColor: MONTH_COLORS['1월'].point,
+          pointBorderColor: MONTH_COLORS['1월'].point,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: '2월',
+          data: data2,
+          borderColor: MONTH_COLORS['2월'].line,
+          backgroundColor: MONTH_COLORS['2월'].bg,
+          pointBackgroundColor: MONTH_COLORS['2월'].point,
+          pointBorderColor: MONTH_COLORS['2월'].point,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.3,
+          fill: false,
+        },
+        {
+          label: '3월',
+          data: data3,
+          borderColor: MONTH_COLORS['3월'].line,
+          backgroundColor: MONTH_COLORS['3월'].bg,
+          pointBackgroundColor: MONTH_COLORS['3월'].point,
+          pointBorderColor: MONTH_COLORS['3월'].point,
+          borderWidth: 2.5,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          tension: 0.3,
+          fill: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#94a3b8', font: { size: 13 }, boxWidth: 24, padding: 16 }
+        },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}h` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: gridColor },
+          ticks: { color: '#334155', font: { size: 13, weight: '500' }, maxRotation: 35, minRotation: 20 }
+        },
+        y: {
+          grid: { color: gridColor },
+          ticks: { color: tickColor, font: { size: 11 }, callback: v => v+'h' }
+        }
+      }
+    }
+  });
+}
+
+// 퓨처파이트 내 팀별 3개월
+const ffTeams = ['PM팀','QA팀','게임디자인1파트','게임디자인2파트','게임디자인3파트','클라이언트팀','서버팀','캐릭터원화팀','캐릭터모델링팀','배경팀','애니메이션팀','FX팀','UI팀'];
+const ff1 = [0.53,0.44,5.03,0.45,2.48,0.85,1.99,12.75,7.17,11.975,1.75,5.53,4.68];
+const ff2 = [2.19,0.76,4.02,0.58,5.56,1.14,2.08,9.30,20.8,12.59,3.37,3.18,5.44];
+const ff3 = [2.77,6.89,2.47,1.33,5.81,3.11,1.40,6.06,11.89,20.01,3.27,3.48,4.40];
+make3MonthChart('futureFightChart', ffTeams, ff1, ff2, ff3);
+
+// 레이븐2 팀별
+const r2Teams = ['PM팀','QA팀','전투디자인팀','시스템디자인팀','컨텐츠디자인팀','레벨디자인팀','서버팀','클라이언트팀','엔진팀','캐릭터원화팀','캐릭터모델링팀','배경원화팀','배경모델링팀','애니메이션팀','FX팀','UI팀'];
+const r21 = [12.48,2.17,3.86,16.45,0.77,9.96,13.28,15.99,18.21,0.70,17.86,3.13,1.93,19.06,8.99,20.78];
+const r22 = [14.59,3.02,1.72,11.84,3.03,0.56,10.55,16.41,13.93,1.74,5.94,0.92,1.90,36.40,14.41,13.39];
+const r23 = [20.69,6.67,14.98,27.50,10.23,7.78,15.55,24.60,24.07,0.76,15.11,0.51,3.25,11.31,21.25,20.19];
+make3MonthChart('raven2Chart', r2Teams, r21, r22, r23);
+
+// BIGCAT 팀별
+const bcTeams = ['PM팀','QA팀','전투디자인팀','시스템디자인팀','설정디자인팀','레벨디자인팀','몬스터디자인팀','서버팀','클라이언트팀','엔진팀','캐릭터원화팀','캐릭터모델링팀','배경원화팀','배경모델링팀','애니메이션팀','FX팀','UI팀'];
+const bc1 = [9.41,6.52,20.19,14.53,15.82,23.25,20.17,17.65,13.35,22.58,7.66,52.85,38.85,13.16,26.48,30.46,22.76];
+const bc2 = [10.5,1.5,11.98,10.55,8.01,9.69,15.20,13.19,3.92,9.02,0.19,35.65,20.82,19.06,21.69,39.14,25.29];
+const bc3 = [61.08,65.42,38.49,36.25,42.87,46.67,41.17,37.85,41.43,65.33,11.25,47.79,47.85,49.05,48.38,80.40,75.03];
+make3MonthChart('bigcatChart', bcTeams, bc1, bc2, bc3);
+
+// FENRIR 팀별
+const fnTeams = ['게임디자인팀','프로그램팀','아트팀'];
+const fn1 = [21.81, 44.60, 46.82];
+const fn2 = [28.69, 33.03, 44.94];
+const fn3 = [24.96, 43.12, 45.99];
+make3MonthChart('fenrirChart', fnTeams, fn1, fn2, fn3);
+
+// 팀 증감 알림 렌더링 함수 (2월→3월 증감 기준, 상위 3개)
+function renderAlerts(containerId, teams, prev, curr, threshold = 3) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const diffs = teams.map((t, i) => ({ team: t, diff: curr[i] - prev[i] }));
+  // 절대값 기준 상위 N개 (threshold 이상만)
+  const notable = diffs
+    .filter(d => Math.abs(d.diff) >= threshold)
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+    .slice(0, 5);
+  if (notable.length === 0) {
+    container.innerHTML = '<span style="font-size:12px;color:var(--muted);">전월 대비 큰 변동 없음</span>';
+    return;
+  }
+  container.innerHTML = '<span style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-right:4px;">전월比 주목</span>' +
+    notable.map(d => {
+      const up = d.diff > 0;
+      const sign = up ? '▲' : '▼';
+      const cls = up ? 'alert-chip-up' : 'alert-chip-down';
+      return `<span class="alert-chip ${cls}">${d.team} <span class="chip-val">${sign} ${Math.abs(d.diff).toFixed(1)}h</span></span>`;
+    }).join('');
+}
+
+renderAlerts('ffAlerts', ffTeams, ff2, ff3, 3);
+renderAlerts('r2Alerts', r2Teams, r22, r23, 5);
+renderAlerts('bcAlerts', bcTeams, bc2, bc3, 10);
+renderAlerts('fnAlerts', fnTeams, fn2, fn3, 3);
+
+// FENRIR 1년 추이 (팀별 3개 팀, 12개월)
+const fenrir1yLabels = ['25.04','25.05','25.06','25.07','25.08','25.09','25.10','25.11','25.12','26.01','26.02','26.03'];
+const fenrir1yData = {
+  '게임디자인팀': [37.03, 35.38, 57.30, 44.70, 19.58, 14.54, 9.91, 11.52, 13.49, 21.81, 28.69, 24.96],
+  '프로그램팀':   [45.71, 43.84, 51.19, 58.53, 40.47, 24.46, 29.28, 38.92, 38.44, 44.60, 33.03, 43.12],
+  '아트팀':       [51.28, 48.36, 65.81, 60.60, 44.21, 29.50, 26.55, 28.14, 38.06, 46.82, 44.94, 45.99],
+};
+const fenrir1yColors = ['#60a5fa','#fbbf24','#34d399'];
+new Chart(document.getElementById('fenrir1yChart'), {
+  type: 'line',
+  data: {
+    labels: fenrir1yLabels,
+    datasets: Object.entries(fenrir1yData).map(([name, data], i) => ({
+      label: name,
+      data,
+      borderColor: fenrir1yColors[i],
+      backgroundColor: fenrir1yColors[i] + '18',
+      pointBackgroundColor: fenrir1yColors[i],
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      borderWidth: 2,
+      tension: 0.3,
+      fill: false,
+    }))
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 13 }, boxWidth: 24, padding: 14 } } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, callback: v => v+'h' } }
+    }
+  }
+});
+
+// 전체 조직 종합 추이 (X축=조직, 선=월별)
+new Chart(document.getElementById('allOrgTrendChart'), {
+  type: 'line',
+  data: {
+    labels: ['퓨처파이트','레이븐2','BIGCAT','FENRIR','지원부서'],
+    datasets: [
+      { label: '1월', data: [4.25, 11.02, 21.88, 35.33, 13.32], borderColor: '#60a5fa', backgroundColor: 'rgba(59,130,246,0.08)', pointBackgroundColor: '#3b82f6', borderWidth: 2, pointRadius: 5, tension: 0.2, fill: false },
+      { label: '2월', data: [5.58, 9.04, 15.74, 34.96, 9.53],   borderColor: '#fbbf24', backgroundColor: 'rgba(245,158,11,0.08)',  pointBackgroundColor: '#f59e0b', borderWidth: 2, pointRadius: 5, tension: 0.2, fill: false },
+      { label: '3월', data: [5.53, 13.50, 47.24, 36.38, 20.63], borderColor: '#34d399', backgroundColor: 'rgba(16,185,129,0.08)', pointBackgroundColor: '#10b981', borderWidth: 2.5, pointRadius: 6, tension: 0.2, fill: false },
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 13 }, boxWidth: 24, padding: 16 } } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#334155', font: { size: 13, weight: '500' } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, callback: v => v+'h' } }
+    }
+  }
+});
+// 섹션 04: 30시간/50시간 이상 초과근무 비율
+new Chart(document.getElementById('overtimeRatioChart'), {
+  type: 'bar',
+  data: {
+    labels: ['퓨처파이트','레이븐2','BIGCAT','FENRIR','지원부서'],
+    datasets: [
+      {
+        label: '30시간 이상',
+        data: [5.1, 12.6, 86.2, 52.6, 26.1],
+        backgroundColor: 'rgba(59,130,246,0.45)',
+        borderColor: '#60a5fa',
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+      {
+        label: '50시간 이상',
+        data: [1.7, 5.3, 39.4, 21.1, 0.0],
+        backgroundColor: 'rgba(239,68,68,0.45)',
+        borderColor: '#f87171',
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+      {
+        type: 'line',
+        label: '30h 전사 평균 (37.5%)',
+        data: [37.5, 37.5, 37.5, 37.5, 37.5],
+        borderColor: '#60a5fa',
+        borderWidth: 1.5,
+        borderDash: [6, 3],
+        pointRadius: 0,
+        fill: false,
+      },
+      {
+        type: 'line',
+        label: '50h 전사 평균 (15.7%)',
+        data: [15.7, 15.7, 15.7, 15.7, 15.7],
+        borderColor: '#f87171',
+        borderWidth: 1.5,
+        borderDash: [6, 3],
+        pointRadius: 0,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#94a3b8', font: { size: 13 }, boxWidth: 24, padding: 16 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } }
+    },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: '#334155', font: { size: 13, weight: '500' } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11 }, callback: v => v+'%' }, max: 100 }
+    }
+  }
+});
+
+// 왼쪽 표 높이 변화 감지 → 오른쪽 차트 wrap 높이 동기화
+(function() {
+  const tableWrap = document.querySelector('#overtimeChartWrap').closest('.chart-wrap').previousElementSibling;
+  const chartWrap = document.getElementById('overtimeChartWrap');
+  const chartInstance = Chart.getChart('overtimeRatioChart');
+
+  function syncHeight() {
+    const h = tableWrap.getBoundingClientRect().height;
+    const titleH = chartWrap.closest('.chart-wrap').querySelector('.chart-title').getBoundingClientRect().height;
+    const padding = 48; // chart-wrap padding top+bottom (24px * 2)
+    chartWrap.style.height = Math.max(100, h - titleH - padding - 8) + 'px';
+    if (chartInstance) chartInstance.resize();
+  }
+
+  syncHeight();
+  const ro = new ResizeObserver(syncHeight);
+  ro.observe(tableWrap);
+  window.addEventListener('resize', syncHeight);
+})();
+</script>
+</body>
+</html>
